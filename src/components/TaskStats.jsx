@@ -30,7 +30,7 @@ const TaskStats = observer(() => {
       backgroundColor: '#f8f9fa',
       borderBottom: '1px solid #dee2e6'
     }}>
-      <h2 style={{ marginTop: 0 }}>任务统计与同步管理</h2>
+      <h2 style={{ marginTop: 0 }}>结合案例理解各核心概念：案例1 - 任务统计与同步管理</h2>
       
       {/* 错误提示 */}
       {hasError && (

@@ -13,10 +13,25 @@
 
 ### 代码示例
 ```javascript
-const RestaurantModel = types.model({
+// 完整的餐厅模型定义
+const KitchenModel = types.model("Kitchen", {
+  chefName: types.string,
+  potatoStock: types.number,
+  beefStock: types.number,
+  isOpen: types.boolean
+});
+
+const DiningHallModel = types.model("DiningHall", {
+  tableCount: types.number,
+  occupiedTables: types.number,
+  waitingCustomers: types.number
+});
+
+const RestaurantModel = types.model("Restaurant", {
   kitchen: KitchenModel, // 后厨部
   diningHall: DiningHallModel, // 大堂部
-})
+  revenue: types.number
+});
 ```
 
 ### 联系
@@ -33,11 +48,24 @@ Models 是根基，它用 Types 来定义每个部门的具体构成。
 
 ### 代码示例
 ```javascript
-const ChefModel = types.model({
+const ChefModel = types.model("Chef", {
   name: types.string, // 姓名必须是字符串
   experience: types.number, // 工龄必须是数字
-  specialties: types.array(types.string) // 擅长菜系是字符串数组
-})
+  specialties: types.array(types.string), // 擅长菜系是字符串数组
+  salary: types.optional(types.number, 0), // 可选字段，默认值为0
+  isOnDuty: types.boolean // 是否在岗
+});
+
+// 运行时类型检查示例
+const chef = ChefModel.create({
+  name: "张师傅",
+  experience: 5,
+  specialties: ["川菜", "粤菜"],
+  isOnDuty: true
+});
+
+// 这会在运行时报错！
+// chef.experience = "五年"; // ❌ 类型错误：期望数字，得到字符串
 ```
 
 ### 区别
@@ -55,10 +83,31 @@ Models 定义有什么部门（结构），Types 定义每个岗位的具体要�
 
 ### 代码示例
 ```javascript
+const KitchenModel = types.model("Kitchen", {
+  // 持久化状态
+  chefName: types.string,
+  potatoStock: types.number
+})
 .volatile((self) => ({
+  // 临时状态，不会被序列化
   currentSpecial: "今日暂无", // 今日特价，临时状态
   isLightOn: false, // 厨房灯是否打开，UI状态
+  currentOrder: null, // 当前正在处理的订单
+  kitchenTemperature: 25, // 厨房温度，实时变化
 }))
+.actions((self) => ({
+  updateSpecial(special) {
+    self.currentSpecial = special; // 修改临时状态
+  },
+  toggleLight() {
+    self.isLightOn = !self.isLightOn;
+  }
+}));
+
+// 快照中不包含volatile状态
+const snapshot = getSnapshot(kitchen);
+// { chefName: "张师傅", potatoStock: 50 }
+// 注意：currentSpecial、isLightOn等不在快照中
 ```
 
 ### 区别
@@ -76,11 +125,44 @@ Volatile State 是「易失的」，不会出现在 Snapshots 里。而用 Types
 
 ### 代码示例
 ```javascript
+const RestaurantModel = types.model("Restaurant", {
+  potatoStock: types.number,
+  beefStock: types.number,
+  tableCount: types.number,
+  occupiedTables: types.number
+})
 .views((self) => ({
+  // 基于库存计算可接待客人数
   get canServeCustomers() {
-    return Math.min(self.potatoStock / 10, self.beefStock / 5); // 自动计算
+    return Math.min(
+      Math.floor(self.potatoStock / 2), // 每份菜需要2个土豆
+      Math.floor(self.beefStock / 1)    // 每份菜需要1份牛肉
+    );
+  },
+  
+  // 计算空闲桌位
+  get availableTables() {
+    return self.tableCount - self.occupiedTables;
+  },
+  
+  // 餐厅是否已满
+  get isFull() {
+    return self.occupiedTables >= self.tableCount;
+  },
+  
+  // 综合营业状态
+  get operationStatus() {
+    if (this.canServeCustomers === 0) return "缺少食材";
+    if (this.isFull) return "座位已满";
+    return "正常营业";
   }
-}))
+}));
+
+// Views会自动缓存，只有依赖的状态改变时才重新计算
+console.log(restaurant.canServeCustomers); // 第一次计算
+console.log(restaurant.canServeCustomers); // 使用缓存结果
+restaurant.potatoStock = 100; // 修改依赖状态
+console.log(restaurant.canServeCustomers); // 重新计算
 ```
 
 ### 联系
@@ -99,15 +181,67 @@ Views 依赖于 Models 中定义的核心状态。它们是只读的，是状态
 
 ### 代码示例
 ```javascript
+const RestaurantModel = types.model("Restaurant", {
+  potatoStock: types.number,
+  beefStock: types.number,
+  revenue: types.number,
+  orderHistory: types.array(types.string)
+})
 .actions((self) => ({
-  usePotatoes(amount) {
+  // 标准的库存消耗流程
+  usePotatoes(amount, orderId) {
     if (self.potatoStock >= amount) {
-      self.potatoStock -= amount; // 在Action内部修改状态
+      self.potatoStock -= amount;
+      self.orderHistory.push(`订单${orderId}: 消耗土豆${amount}个`);
+      return true;
     } else {
-      throw new Error("土豆库存不足！");
+      throw new Error(`土豆库存不足！当前库存：${self.potatoStock}，需要：${amount}`);
     }
+  },
+  
+  // 补货流程
+  restockIngredients(potatoes, beef) {
+    self.potatoStock += potatoes;
+    self.beefStock += beef;
+    self.orderHistory.push(`补货: 土豆+${potatoes}, 牛肉+${beef}`);
+  },
+  
+  // 完整的下单流程
+  processOrder(customerCount) {
+    const potatoesNeeded = customerCount * 2;
+    const beefNeeded = customerCount * 1;
+    
+    // 检查库存
+    if (self.potatoStock < potatoesNeeded) {
+      throw new Error("土豆库存不足，无法接单");
+    }
+    if (self.beefStock < beefNeeded) {
+      throw new Error("牛肉库存不足，无法接单");
+    }
+    
+    // 消耗库存
+    self.potatoStock -= potatoesNeeded;
+    self.beefStock -= beefNeeded;
+    
+    // 增加收入
+    const orderValue = customerCount * 50; // 每份菜50元
+    self.revenue += orderValue;
+    
+    // 记录订单
+    const orderId = Date.now();
+    self.orderHistory.push(`订单${orderId}: ${customerCount}份菜，收入${orderValue}元`);
+    
+    return orderId;
   }
-}))
+}));
+
+// 使用示例
+try {
+  const orderId = restaurant.processOrder(3); // 处理3人的订单
+  console.log(`订单${orderId}处理成功`);
+} catch (error) {
+  console.error("订单处理失败:", error.message);
+}
 ```
 
 ### 联系与区别
@@ -129,8 +263,42 @@ Views 依赖于 Models 中定义的核心状态。它们是只读的，是状态
 
 ### 代码示例
 ```javascript
-const endOfDaySnapshot = getSnapshot(myRestaurant); // 拍快照
-applySnapshot(myRestaurant, newSnapshot); // 用新快照还原状态
+// 创建餐厅实例
+const restaurant = RestaurantModel.create({
+  potatoStock: 100,
+  beefStock: 50,
+  revenue: 0,
+  orderHistory: []
+});
+
+// 营业一天后...
+restaurant.processOrder(5); // 处理几个订单
+restaurant.processOrder(3);
+
+// 每日结束，保存快照
+const endOfDaySnapshot = getSnapshot(restaurant);
+console.log("今日营业报表:", endOfDaySnapshot);
+// {
+//   potatoStock: 84,
+//   beefStock: 42,
+//   revenue: 400,
+//   orderHistory: ["订单1634567890: 5份菜，收入250元", ...]
+// }
+
+// 第二天开业，恢复到昨天的状态
+const newRestaurant = RestaurantModel.create(endOfDaySnapshot);
+
+// 或者直接应用到现有实例
+applySnapshot(restaurant, endOfDaySnapshot);
+
+// 时间旅行调试：回到某个历史状态
+const historicalSnapshot = {
+  potatoStock: 100,
+  beefStock: 50,
+  revenue: 0,
+  orderHistory: []
+};
+applySnapshot(restaurant, historicalSnapshot); // 回到开业初始状态
 ```
 
 ### 联系
@@ -154,11 +322,47 @@ Snapshots 只包含 Models 中用 Types 定义的持久化状态，不包含 Vol
 
 ### 代码示例
 ```javascript
-onPatch(myRestaurant, (patch) => {
-  // patch 对象描述了发生了什么变化
-  // 例如：{op: "replace", path: "/potatoStock", value: 17}
-  // 可以把这个patch通过网络发送给其他客户端
-})
+// 监听餐厅的所有变化
+onPatch(restaurant, (patch) => {
+  console.log("检测到变化:", patch);
+  
+  // 实时同步到其他分店
+  sendToOtherBranches(patch);
+  
+  // 记录操作日志
+  logOperation(patch);
+});
+
+// 执行一些操作
+restaurant.usePotatoes(5, "ORDER001");
+// 输出: {op: "replace", path: "/potatoStock", value: 95}
+
+restaurant.processOrder(2);
+// 输出多个patch:
+// {op: "replace", path: "/potatoStock", value: 91}
+// {op: "replace", path: "/beefStock", value: 48}
+// {op: "replace", path: "/revenue", value: 100}
+// {op: "add", path: "/orderHistory/0", value: "订单1634567890: 2份菜，收入100元"}
+
+// 在其他客户端应用这些变化
+function syncFromMainBranch(patches) {
+  patches.forEach(patch => {
+    applyPatch(localRestaurant, patch);
+  });
+}
+
+// 逆向操作：撤销最后一个操作
+onPatch(restaurant, (patch, inversePatch) => {
+  // inversePatch 可以用来撤销这个操作
+  undoStack.push(inversePatch);
+});
+
+function undo() {
+  const lastInversePatch = undoStack.pop();
+  if (lastInversePatch) {
+    applyPatch(restaurant, lastInversePatch);
+  }
+}
 ```
 
 ### 区别
