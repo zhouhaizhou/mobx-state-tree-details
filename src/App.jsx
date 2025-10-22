@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { observer } from 'mobx-react';
+import Sidebar from './components/Sidebar';
+import MainContent from './components/MainContent';
 import TaskList from './components/TaskList';
 import TaskStats from './components/TaskStats';
 import FlowDemo from './components/FlowDemo';
@@ -11,33 +13,51 @@ import taskStore from './models/TaskStore';
 
 const App = observer(() => {
   const { selectedTask, setSelectedTaskId } = taskStore;
+  const [activeSection, setActiveSection] = useState('core-concepts');
+
+  const handleSectionChange = (sectionId) => {
+    setActiveSection(sectionId);
+    // 切换导航时清除选中的任务
+    if (selectedTask) {
+      setSelectedTaskId(null);
+    }
+  };
 
   return (
     <div style={{ 
       minHeight: '100vh',
-      backgroundColor: '#f5f5f5'
+      backgroundColor: '#f5f5f5',
+      display: 'flex'
     }}>
+      {/* 左侧导航 */}
+      <Sidebar 
+        activeSection={activeSection}
+        onSectionChange={handleSectionChange}
+      />
+      
+      {/* 主要内容区域 */}
       <div style={{
-        maxWidth: '1400px',
-        margin: '0 auto',
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
         backgroundColor: 'white',
         minHeight: '100vh',
         boxShadow: '0 0 10px rgba(0,0,0,0.1)'
       }}>
+        {/* 头部 */}
         <header style={{
-          padding: '20px',
+          padding: '20px 30px',
           borderBottom: '2px solid #007bff',
           backgroundColor: '#f8f9fa'
         }}>
           <h1 style={{ 
             margin: 0,
             color: '#007bff',
-            textAlign: 'center'
+            fontSize: '24px'
           }}>
             🔌 MST 插件系统演示项目
           </h1>
           <p style={{
-            textAlign: 'center',
             margin: '10px 0 0 0',
             color: '#6c757d',
             fontSize: '14px'
@@ -46,38 +66,23 @@ const App = observer(() => {
           </p>
         </header>
         
+        {/* 内容区域 */}
         <div style={{ 
           display: 'flex',
-          minHeight: 'calc(100vh - 120px)'
+          flex: 1,
+          minHeight: 0
         }}>
-          <div style={{ 
-            flex: 1,
-            minWidth: 0
-          }}>
-            <TaskStats />
-            
-            {/* 🔹 新增：文档查看器 */}
-            <DocumentViewer />
-            
-            {/* 🔌 MST 插件系统综合展示 */}
-            <PluginShowcase />
-            
-            {/* 🔹 插件系统演示组件 */}
-            <PluginDemo />
-            
-            {/* 🔹 新增：Flow 模式演示组件 */}
-            <FlowDemo />
-            
-            <TaskList />
-          </div>
+          {/* 主内容 */}
+          <MainContent activeSection={activeSection} />
           
-          {/* 侧边栏 - 显示选中任务详情 */}
+          {/* 右侧任务详情面板 */}
           {selectedTask && (
             <div style={{ 
               width: '320px',
               borderLeft: '1px solid #dee2e6',
               padding: '20px',
-              backgroundColor: '#f8f9fa'
+              backgroundColor: '#f8f9fa',
+              overflow: 'auto'
             }}>
               <div style={{
                 display: 'flex',
@@ -120,7 +125,6 @@ const App = observer(() => {
                   <strong>状态:</strong> {selectedTask.status}
                 </p>
                 
-                {/* 🔹 新增：同步状态显示 */}
                 <p style={{ margin: '0 0 5px 0' }}>
                   <strong>同步状态:</strong> {selectedTask.syncStatusText}
                 </p>
@@ -161,7 +165,6 @@ const App = observer(() => {
                     编辑标题
                   </button>
                   
-                  {/* 🔹 新增：重置同步状态按钮 */}
                   {selectedTask.syncStatus !== 'pending' && (
                     <button 
                       onClick={() => {
