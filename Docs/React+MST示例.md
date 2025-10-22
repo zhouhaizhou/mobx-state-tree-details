@@ -1,14 +1,22 @@
-好的，下面是一个完整的 React + MST 示例，模拟一个简单的「任务管理应用」，我会逐部分解读每个核心概念。
-项目结构
-src/
-  ├── models/
-  │   └── TaskStore.js  # MST 模型定义
-  ├── components/
-  │   ├── TaskList.js
-  │   └── TaskStats.js
-  └── App.js
+## 📖 项目概述
 
-1. MST 模型定义 (models/TaskStore.js)
+好的，下面是一个完整的 React + MST 示例，模拟一个简单的「任务管理应用」，我会逐部分解读每个核心概念。
+
+## 🏗️ 项目结构
+
+```
+src/
+├── models/
+│   └── TaskStore.js  # MST 模型定义
+├── components/
+│   ├── TaskList.js
+│   └── TaskStats.js
+└── App.js
+```
+
+## 🔧 MST 模型定义 (models/TaskStore.js)
+
+```javascript
 import { types, onSnapshot, onPatch } from "mobx-state-tree";
 
 // 🔹 1. Models & Types: 定义任务模型的结构
@@ -163,9 +171,7 @@ const TaskStore = types
 
 // 创建 store 实例
 const taskStore = TaskStore.create({
-
-  tasks: [ ]
-
+  tasks: []
 });
 
 // 🔹 5. Snapshots: 监听和操作快照
@@ -193,8 +199,11 @@ if (savedSnapshot) {
 }
 
 export default taskStore;
+```
 
-2. React 组件 (components/TaskList.js)
+## ⚛️ React 组件 (components/TaskList.js)
+
+```javascript
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import taskStore from '../models/TaskStore';
@@ -249,190 +258,220 @@ const TaskList = observer(() => {
           value={newTaskTitle}
           onChange={(e) => setNewTaskTitle(e.target.value)}
         />
-        <button type="submit">添加</button>
+        <button type="submit">添加任务</button>
       </form>
-      
+
       {/* 任务列表 */}
-      {filteredList.map(task => (
-        <div key={task.id} className="task-item">
-          <h3>{task.title}</h3>
-          <p>{task.description}</p>
-          
-          {/* 使用 Views */}
-          <div>
-            <span>状态: {task.status}</span>
-            <span> | 创建于 {task.daysSinceCreated} 天前</span>
+      <div className="tasks">
+        {filteredList.map(task => (
+          <div 
+            key={task.id} 
+            className={`task-item ${task.completed ? 'completed' : ''}`}
+            onClick={() => setSelectedTaskId(task.id)}
+          >
+            <div className="task-content">
+              <h3>{task.title}</h3>
+              <p>{task.description}</p>
+              <small>创建于 {task.daysSinceCreated} 天前 - {task.status}</small>
+            </div>
+            
+            <div className="task-actions">
+              <button onClick={(e) => {
+                e.stopPropagation();
+                task.toggleCompleted();
+              }}>
+                {task.completed ? '取消完成' : '标记完成'}
+              </button>
+              
+              <button onClick={(e) => {
+                e.stopPropagation();
+                removeTask(task.id);
+              }}>
+                删除
+              </button>
+            </div>
           </div>
-          
-          {/* 使用 Actions */}
-          <div className="task-actions">
-            <button onClick={() => task.toggleCompleted()}>
-              {task.completed ? "标记未完成" : "标记完成"}
-            </button>
-            <button onClick={() => setSelectedTaskId(task.id)}>
-              查看详情
-            </button>
-            <button onClick={() => removeTask(task.id)}>
-              删除
-            </button>
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 });
 
 export default TaskList;
+```
 
-3. 统计组件 (components/TaskStats.js)
+## 📊 统计组件 (components/TaskStats.js)
+
+```javascript
 import React from 'react';
 import { observer } from 'mobx-react-lite';
 import taskStore from '../models/TaskStore';
 
 const TaskStats = observer(() => {
-  // 使用 Views 中的计算值
-  const { stats, filter, setFilter } = taskStore;
+  const { stats, filter } = taskStore;
+  const { setFilter, loadTasks } = taskStore;
 
   return (
     <div className="task-stats">
-      <h2>任务统计</h2>
+      <h2>📊 任务统计</h2>
       
       <div className="stats-grid">
-        <div className="stat-item">
-          <strong>总计:</strong> {stats.total}
+        <div className="stat-card">
+          <h3>总任务数</h3>
+          <span className="stat-number">{stats.total}</span>
         </div>
-        <div className="stat-item">
-          <strong>进行中:</strong> {stats.active}
-        </div>
-        <div className="stat-item">
-          <strong>已完成:</strong> {stats.completed}
-        </div>
-        <div className="stat-item">
-          <strong>完成率:</strong> {stats.completionRate}%
-        </div>
-      </div>
-      
-      {/* 过滤器 - 使用 Actions */}
-      <div className="filters">
-        <label>筛选: </label>
-        {["all", "active", "completed"].map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            style={{ 
-              fontWeight: filter === f ? "bold" : "normal",
-              margin: "0 5px"
-            }}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-      
-      {/* 快照操作 */}
-      <div className="snapshot-actions">
-        <button onClick={() => {
-          const snapshot = getSnapshot(taskStore);
-          console.log("当前快照:", snapshot);
-          alert("快照已打印到控制台");
-        }}>
-          获取快照
-        </button>
         
-        <button onClick={() => taskStore.loadTasks()}>
-          重新加载任务
+        <div className="stat-card">
+          <h3>已完成</h3>
+          <span className="stat-number completed">{stats.completed}</span>
+        </div>
+        
+        <div className="stat-card">
+          <h3>进行中</h3>
+          <span className="stat-number active">{stats.active}</span>
+        </div>
+        
+        <div className="stat-card">
+          <h3>完成率</h3>
+          <span className="stat-number">{stats.completionRate}%</span>
+        </div>
+      </div>
+
+      {/* 过滤器 */}
+      <div className="filters">
+        <h3>筛选任务</h3>
+        <div className="filter-buttons">
+          {['all', 'active', 'completed'].map(filterType => (
+            <button
+              key={filterType}
+              className={filter === filterType ? 'active' : ''}
+              onClick={() => setFilter(filterType)}
+            >
+              {filterType === 'all' ? '全部' : 
+               filterType === 'active' ? '进行中' : '已完成'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 操作按钮 */}
+      <div className="actions">
+        <button onClick={loadTasks}>
+          🔄 重新加载任务
         </button>
       </div>
     </div>
   );
 });
 
-// 需要导入 getSnapshot
-import { getSnapshot } from "mobx-state-tree";
-
 export default TaskStats;
+```
 
-4. 主应用 (App.js)
-import React from 'react';
+## 🚀 主应用组件 (App.js)
+
+```javascript
+import React, { useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import TaskList from './components/TaskList';
 import TaskStats from './components/TaskStats';
 import taskStore from './models/TaskStore';
+import './App.css';
 
 const App = observer(() => {
-  // 使用 Volatile State 和 Views
   const { selectedTask, setSelectedTaskId } = taskStore;
+
+  useEffect(() => {
+    // 应用启动时加载任务
+    taskStore.loadTasks();
+  }, []);
 
   return (
     <div className="app">
-      <h1>🚀 MST 任务管理器</h1>
-      
-      <div className="app-layout">
-        <div className="main-content">
+      <header className="app-header">
+        <h1>📝 React + MST 任务管理器</h1>
+        <p>演示 MobX-State-Tree 的核心概念和最佳实践</p>
+      </header>
+
+      <main className="app-main">
+        <div className="content">
           <TaskStats />
           <TaskList />
         </div>
-        
+
         {/* 侧边栏 - 显示选中任务详情 */}
         {selectedTask && (
-          <div className="sidebar">
-            <h3>任务详情</h3>
-            <button onClick={() => setSelectedTaskId(null)}>关闭</button>
+          <aside className="task-detail-sidebar">
+            <div className="sidebar-header">
+              <h3>任务详情</h3>
+              <button onClick={() => setSelectedTaskId(null)}>✕</button>
+            </div>
             
-            <h4>{selectedTask.title}</h4>
-            <p>{selectedTask.description}</p>
-            <p><strong>状态:</strong> {selectedTask.status}</p>
-            <p><strong>创建时间:</strong> {selectedTask.createdAt.toLocaleString()}</p>
-            <p><strong>已存在:</strong> {selectedTask.daysSinceCreated} 天</p>
-            
-            <button onClick={() => {
-              const newTitle = prompt("输入新标题:", selectedTask.title);
-              if (newTitle !== null) {
-                try {
-                  selectedTask.updateTitle(newTitle);
-                } catch (error) {
-                  alert(error.message);
-                }
-              }
-            }}>
-              编辑标题
-            </button>
-          </div>
+            <div className="task-detail">
+              <h4>{selectedTask.title}</h4>
+              <p>{selectedTask.description}</p>
+              <div className="task-meta">
+                <p><strong>状态:</strong> {selectedTask.status}</p>
+                <p><strong>创建时间:</strong> {selectedTask.createdAt.toLocaleString()}</p>
+                <p><strong>已存在:</strong> {selectedTask.daysSinceCreated} 天</p>
+              </div>
+              
+              <div className="task-actions">
+                <button onClick={() => selectedTask.toggleCompleted()}>
+                  {selectedTask.completed ? '标记为未完成' : '标记为完成'}
+                </button>
+                
+                <button onClick={() => {
+                  const newTitle = prompt("输入新标题:", selectedTask.title);
+                  if (newTitle) {
+                    selectedTask.updateTitle(newTitle);
+                  }
+                }}>
+                  编辑标题
+                </button>
+              </div>
+            </div>
+          </aside>
         )}
-      </div>
+      </main>
     </div>
   );
 });
 
 export default App;
+```
 
-核心概念在 Demo 中的体现
-🔹 Models & Types
-· Task 和 TaskStore 模型定义了数据结构
-· 每个字段都有明确的类型 (string, boolean, Date, array)
-🔹 Views (计算属性)
-· task.status - 根据完成状态派生显示文本
-· task.daysSinceCreated - 计算任务存在天数
-· store.filteredTasks - 根据过滤器筛选任务
-· store.stats - 计算各种统计数据
-🔹 Actions (状态修改)
-· addTask(), removeTask() - 修改任务数组
-· toggleCompleted() - 修改单个任务状态
-· updateTitle() - 包含验证逻辑的修改
-🔹 Volatile State (临时状态)
-· isLoading - 加载状态（不持久化）
-· searchKeyword - 搜索关键词（临时UI状态）
-· selectedTaskId - 当前选中的任务ID
-🔹 Snapshots (快照)
-· 自动保存到 localStorage
-· 应用启动时从快照恢复状态
-· 可以手动获取和查看快照
-🔹 Patches (补丁)
-· 监听所有状态变化的细节
-· 可用于实时同步或调试
-这个 Demo 完整展示了 MST 如何提供：
-· 类型安全（运行时验证）
-· 响应式更新（自动重新渲染）
-· 可预测的状态管理（通过 Actions）
-· 强大的开发者工具（快照、补丁）
-· 灵活的状态结构（持久化 + 临时状态）
+## 🎯 核心概念总结
+
+### 1. **Models & Types**
+- 定义数据结构和类型约束
+- 支持基础类型、复合类型和自定义类型
+- 提供运行时类型检查
+
+### 2. **Views (计算属性)**
+- 基于状态派生的只读数据
+- 自动缓存和依赖追踪
+- 支持组合和嵌套
+
+### 3. **Actions**
+- 唯一修改状态的方式
+- 支持同步和异步操作
+- 自动事务处理
+
+### 4. **Volatile State**
+- 临时状态，不参与序列化
+- 适用于 UI 状态和缓存数据
+- 性能优化的重要手段
+
+### 5. **Snapshots & Patches**
+- 状态快照用于持久化和时间旅行
+- 补丁记录用于实时同步和撤销重做
+- 完整的状态管理生命周期
+
+## 🚀 运行项目
+
+```bash
+npm install
+npm start
+```
+
+这个示例展示了 MST 在实际 React 项目中的完整应用，包括状态管理、组件集成和最佳实践。

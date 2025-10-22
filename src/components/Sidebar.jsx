@@ -5,6 +5,12 @@ const Sidebar = ({ activeSection, onSectionChange }) => {
 
   const navigationItems = [
     {
+      id: 'document-library',
+      title: '项目文档库',
+      icon: '📖',
+      description: '完整的项目文档、API 参考和开发指南'
+    },
+    {
       id: 'core-concepts',
       title: 'MST核心概念解读及示例',
       icon: '📚',
@@ -22,12 +28,7 @@ const Sidebar = ({ activeSection, onSectionChange }) => {
       icon: '🔌',
       description: '插件系统架构、实现原理和实际应用演示'
     },
-    {
-      id: 'document-library',
-      title: '项目文档库',
-      icon: '📖',
-      description: '完整的项目文档、API 参考和开发指南'
-    }
+    
   ];
 
   const handleItemClick = (itemId) => {

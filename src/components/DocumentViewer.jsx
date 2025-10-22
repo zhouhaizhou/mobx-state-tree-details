@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import { useTheme } from '../hooks/useTheme';
+import ThemeSelector from './ThemeSelector';
 
 const DocumentViewer = () => {
   const [documents, setDocuments] = useState([]);
   const [selectedDoc, setSelectedDoc] = useState(null);
   const [docContent, setDocContent] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // 使用主题Hook
+  const { getCodeStyles } = useTheme();
+  const codeStyles = getCodeStyles();
 
-  // 文档列表配置
   const documentList = [
     {
       id: 'mst-core-concepts',
@@ -18,12 +26,30 @@ const DocumentViewer = () => {
       lastUpdated: '2025-10-21'
     },
     {
+      id: 'mst-core-concepts-simple',
+      title: 'MST 核心概念通俗化讲解',
+      description: '用"赛博餐厅"的生动比喻，通俗易懂地解释 MST 的7个核心概念',
+      filename: 'MST-核心概念通俗化讲解.md',
+      category: '基础概念',
+      tags: ['MST', '通俗讲解', '核心概念', '入门教程'],
+      lastUpdated: '2025-10-22'
+    },
+    {
       id: 'mst-plugin-system',
       title: 'MST 插件机制详解',
       description: 'MST 插件系统的完整实现，包括中间件、钩子函数、自定义类型等',
       filename: 'MST-插件机制详解.md',
       category: '高级特性',
       tags: ['插件系统', '中间件', '扩展性'],
+      lastUpdated: '2025-10-21'
+    },
+    {
+      id: 'react-mst-example',
+      title: 'React+MST示例',
+      description: '完整的 React + MST 项目示例，展示最佳实践和开发技巧',
+      filename: 'React+MST示例.md',
+      category: '实践案例',
+      tags: ['React', 'MST', '示例项目'],
       lastUpdated: '2025-10-21'
     },
     {
@@ -44,8 +70,7 @@ const DocumentViewer = () => {
   const loadDocumentContent = async (filename) => {
     setLoading(true);
     try {
-      // 模拟加载文档内容
-      // 在实际应用中，这里会从服务器或本地文件系统加载
+      // 尝试从服务器加载文档内容
       const response = await fetch(`/Docs/${filename}`);
       if (response.ok) {
         const content = await response.text();
@@ -68,47 +93,249 @@ const DocumentViewer = () => {
       'MST-核心概念分析.md': `# MST 核心概念分析
 
 ## 📖 概述
-MobX-State-Tree (MST) 是一个功能强大的状态管理库...
+
+MobX-State-Tree (MST) 是一个功能强大的状态管理库，它结合了 MobX 的响应式特性和不可变数据的优势。
 
 ## 🔧 核心概念
-1. **Models**: 定义数据结构
-2. **Views**: 派生数据和计算属性
-3. **Actions**: 修改状态的方法
-4. **Snapshots**: 状态快照
-5. **Patches**: 状态变化记录
+
+### 1. Models & Types
+定义数据结构和类型系统：
+
+\`\`\`javascript
+import { types } from 'mobx-state-tree';
+
+const Task = types.model('Task', {
+  id: types.identifier,
+  title: types.string,
+  completed: types.boolean
+});
+\`\`\`
+
+### 2. Views & Computed
+派生数据和计算属性：
+
+\`\`\`javascript
+const TaskStore = types.model('TaskStore', {
+  tasks: types.array(Task)
+}).views(self => ({
+  get completedTasks() {
+    return self.tasks.filter(task => task.completed);
+  }
+}));
+\`\`\`
+
+### 3. Actions
+修改状态的方法：
+
+\`\`\`javascript
+.actions(self => ({
+  addTask(title) {
+    self.tasks.push({
+      id: Date.now().toString(),
+      title,
+      completed: false
+    });
+  }
+}));
+\`\`\`
 
 ## 💡 设计思想
-MST 结合了 MobX 的响应式特性和不可变数据的优势...`,
+
+MST 的核心设计思想包括：
+
+- **类型安全**: 强类型系统确保数据一致性
+- **不可变性**: 状态变更通过 actions 进行
+- **响应式**: 自动追踪依赖关系
+- **可序列化**: 支持快照和补丁`,
 
       'MST-插件机制详解.md': `# MST 插件机制详解
 
 ## 📖 概述
-MST 提供了强大而灵活的插件机制，支持中间件、钩子函数等多种扩展方式...
+
+MST 提供了强大而灵活的插件机制，支持中间件、钩子函数等多种扩展方式。
 
 ## 🔧 核心机制
-1. **Middleware**: 中间件系统
-2. **Hooks**: 钩子函数
-3. **Custom Types**: 自定义类型
-4. **Mixins**: 混入模式
+
+### 1. Middleware 中间件系统
+
+\`\`\`javascript
+import { addMiddleware } from 'mobx-state-tree';
+
+addMiddleware(store, (call, next) => {
+  console.log('Action called:', call.name);
+  return next(call);
+});
+\`\`\`
+
+### 2. Hooks 钩子函数
+
+\`\`\`javascript
+import { onSnapshot, onPatch } from 'mobx-state-tree';
+
+// 监听快照变化
+onSnapshot(store, snapshot => {
+  console.log('Snapshot:', snapshot);
+});
+
+// 监听补丁变化
+onPatch(store, patch => {
+  console.log('Patch:', patch);
+});
+\`\`\`
+
+### 3. Custom Types 自定义类型
+
+\`\`\`javascript
+const DateType = types.custom({
+  name: 'Date',
+  fromSnapshot(value) {
+    return new Date(value);
+  },
+  toSnapshot(value) {
+    return value.toISOString();
+  }
+});
+\`\`\`
 
 ## 🔌 插件实现
+
 详细的插件系统实现和使用指南...`,
+
+      'React+MST示例.md': `# React+MST示例
+
+## 📖 项目概述
+
+这是一个完整的 React + MST 示例项目，展示了如何在实际项目中使用 MobX-State-Tree。
+
+## 🏗️ 项目结构
+
+\`\`\`
+src/
+├── models/
+│   └── TaskStore.js # MST 模型定义
+├── components/
+│   ├── TaskList.js
+│   └── TaskStats.js
+└── App.js
+\`\`\`
+
+## 🔧 MST 模型定义 (models/TaskStore.js)
+
+\`\`\`javascript
+import { types, onSnapshot, onPatch } from 'mobx-state-tree';
+
+// 🔹 1. Models & Types: 定义任务模型的结构
+const Task = types
+  .model('Task', {
+    id: types.identifier,
+    title: types.string,
+    description: types.optional(types.string, ''),
+    completed: types.optional(types.boolean, false),
+    createdAt: types.optional(types.Date, () => new Date()),
+    syncStatus: types.optional(types.enumeration(['pending', 'syncing', 'synced', 'error']), 'pending'),
+    lastSyncAt: types.maybe(types.Date)
+  })
+  .views(self => ({
+    // 🔹 2. Views: 派生数据和计算属性
+    get status() {
+      return self.completed ? '已完成' : '进行中';
+    },
+    get daysSinceCreated() {
+      const diffTime = Math.abs(new Date() - self.createdAt);
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    },
+    get syncStatusText() {
+      const statusMap = {
+        pending: '待同步',
+        syncing: '同步中',
+        synced: '已同步',
+        error: '同步失败'
+      };
+      return statusMap[self.syncStatus] || '未知状态';
+    }
+  }))
+  .actions(self => ({
+    // 🔹 3. Actions: 修改状态的方法
+    toggle() {
+      self.completed = !self.completed;
+    },
+    updateTitle(newTitle) {
+      if (!newTitle || newTitle.trim().length === 0) {
+        throw new Error('标题不能为空');
+      }
+      self.title = newTitle.trim();
+    },
+    setSyncStatus(status) {
+      self.syncStatus = status;
+      if (status === 'synced') {
+        self.lastSyncAt = new Date();
+      }
+    }
+  }));
+\`\`\`
+
+## 🎯 主要特性
+
+1. **类型安全**: 使用 MST 的类型系统
+2. **响应式更新**: 自动 UI 更新
+3. **状态管理**: 集中式状态管理
+4. **插件系统**: 可扩展的架构
+
+## 🚀 运行项目
+
+\`\`\`bash
+npm install
+npm start
+\`\`\``,
 
       'deepseek.md': `# DeepSeek 开发笔记
 
 ## 🤖 关于 DeepSeek
-DeepSeek 是一个强大的 AI 编程助手...
+
+DeepSeek 是一个强大的 AI 编程助手，能够帮助开发者提高编程效率。
 
 ## 💡 使用技巧
-1. 清晰的问题描述
-2. 提供足够的上下文
-3. 分步骤进行复杂任务
+
+### 1. 清晰的问题描述
+- 提供具体的需求描述
+- 包含相关的技术栈信息
+- 说明预期的结果
+
+### 2. 提供足够的上下文
+- 分享相关的代码片段
+- 说明项目的整体架构
+- 提供错误信息和日志
+
+### 3. 分步骤进行复杂任务
+- 将大任务拆分为小步骤
+- 逐步验证每个步骤的结果
+- 及时反馈和调整
 
 ## 🚀 最佳实践
-在实际开发中的应用经验...`
+
+在实际开发中的应用经验：
+
+\`\`\`javascript
+// 示例：使用 AI 辅助重构代码
+const optimizedFunction = (data) => {
+  // AI 建议的优化方案
+  return data.filter(item => item.active)
+             .map(item => ({ ...item, processed: true }));
+};
+\`\`\`
+
+## 📝 开发心得
+
+1. **保持耐心**: AI 需要时间理解复杂需求
+2. **迭代改进**: 通过多轮对话完善解决方案
+3. **验证结果**: 始终验证 AI 生成的代码`
     };
 
-    return presetContents[filename] || '# 文档内容\n\n文档正在加载中...';
+    return presetContents[filename] || `# 文档内容
+
+文档正在加载中...
+
+请稍候，我们正在为您准备文档内容。`;
   };
 
   const handleDocumentSelect = (doc) => {
@@ -121,37 +348,94 @@ DeepSeek 是一个强大的 AI 编程助手...
     setDocContent('');
   };
 
-  const renderMarkdown = (content) => {
-    // 简单的 Markdown 渲染（实际项目中建议使用专业的 Markdown 解析库）
-    return content
-      .split('\n')
-      .map((line, index) => {
-        if (line.startsWith('# ')) {
-          return <h1 key={index} style={{ color: '#2c3e50', marginTop: '30px', marginBottom: '15px' }}>{line.substring(2)}</h1>;
-        }
-        if (line.startsWith('## ')) {
-          return <h2 key={index} style={{ color: '#34495e', marginTop: '25px', marginBottom: '12px' }}>{line.substring(3)}</h2>;
-        }
-        if (line.startsWith('### ')) {
-          return <h3 key={index} style={{ color: '#7f8c8d', marginTop: '20px', marginBottom: '10px' }}>{line.substring(4)}</h3>;
-        }
-        if (line.startsWith('```')) {
-          return <div key={index} style={{ 
-            backgroundColor: '#2d3748', 
-            color: '#e2e8f0', 
-            padding: '15px', 
-            borderRadius: '6px', 
-            fontFamily: 'Monaco, Consolas, monospace',
-            fontSize: '14px',
-            margin: '10px 0',
-            overflow: 'auto'
-          }}>代码块</div>;
-        }
-        if (line.trim() === '') {
-          return <br key={index} />;
-        }
-        return <p key={index} style={{ lineHeight: '1.6', marginBottom: '10px' }}>{line}</p>;
-      });
+  // 自定义 Markdown 组件样式
+  const markdownComponents = {
+    h1: ({ children }) => (
+      <h1 style={{ 
+        color: '#2c3e50', 
+        marginTop: '30px', 
+        marginBottom: '15px',
+        borderBottom: '2px solid #3498db',
+        paddingBottom: '10px'
+      }}>
+        {children}
+      </h1>
+    ),
+    h2: ({ children }) => (
+      <h2 style={{ 
+        color: '#34495e', 
+        marginTop: '25px', 
+        marginBottom: '12px',
+        borderBottom: '1px solid #bdc3c7',
+        paddingBottom: '5px'
+      }}>
+        {children}
+      </h2>
+    ),
+    h3: ({ children }) => (
+      <h3 style={{ 
+        color: '#7f8c8d', 
+        marginTop: '20px', 
+        marginBottom: '10px'
+      }}>
+        {children}
+      </h3>
+    ),
+    p: ({ children }) => (
+      <p style={{ 
+        lineHeight: '1.8', 
+        marginBottom: '15px',
+        color: '#2c3e50'
+      }}>
+        {children}
+      </p>
+    ),
+    code: ({ inline, children }) => (
+      <code style={{
+        backgroundColor: inline ? codeStyles.inlineCode.backgroundColor : 'transparent',
+        padding: inline ? codeStyles.inlineCode.padding : '0',
+        borderRadius: inline ? codeStyles.inlineCode.borderRadius : '0',
+        fontFamily: codeStyles.pre.fontFamily,
+        fontSize: inline ? '0.9em' : '1em',
+        color: inline ? codeStyles.inlineCode.color : 'inherit',
+        border: inline ? codeStyles.inlineCode.border : 'none'
+      }}>
+        {children}
+      </code>
+    ),
+    pre: ({ children }) => (
+      <pre style={codeStyles.pre}>
+        {children}
+      </pre>
+    ),
+    blockquote: ({ children }) => (
+      <blockquote style={{
+        borderLeft: '4px solid #3498db',
+        paddingLeft: '20px',
+        margin: '20px 0',
+        backgroundColor: '#f8f9fa',
+        padding: '15px 20px',
+        borderRadius: '0 5px 5px 0'
+      }}>
+        {children}
+      </blockquote>
+    ),
+    ul: ({ children }) => (
+      <ul style={{
+        paddingLeft: '20px',
+        marginBottom: '15px'
+      }}>
+        {children}
+      </ul>
+    ),
+    li: ({ children }) => (
+      <li style={{
+        marginBottom: '5px',
+        lineHeight: '1.6'
+      }}>
+        {children}
+      </li>
+    )
   };
 
   if (selectedDoc) {
@@ -178,20 +462,27 @@ DeepSeek 是一个强大的 AI 编程助手...
               {selectedDoc.description}
             </p>
           </div>
-          <button
-            onClick={handleBackToList}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            ← 返回列表
-          </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {/* 主题选择器 */}
+            <ThemeSelector />
+            <button
+              onClick={handleBackToList}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#5a6268'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#6c757d'}
+            >
+              ← 返回列表
+            </button>
+          </div>
         </div>
 
         {/* 文档元信息 */}
@@ -227,7 +518,13 @@ DeepSeek 是一个强大的 AI 编程助手...
             </div>
           ) : (
             <div style={{ lineHeight: '1.8' }}>
-              {renderMarkdown(docContent)}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={markdownComponents}
+              >
+                {docContent}
+              </ReactMarkdown>
             </div>
           )}
         </div>
@@ -243,65 +540,37 @@ DeepSeek 是一个强大的 AI 编程助手...
       margin: '20px 0',
       border: '1px solid #dee2e6'
     }}>
-      <h3 style={{ 
-        color: '#495057', 
-        marginTop: 0,
-        marginBottom: '20px',
+      <div style={{
         display: 'flex',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        gap: '10px'
+        marginBottom: '20px'
       }}>
-        📚 项目文档库
-        <span style={{
-          fontSize: '14px',
-          fontWeight: 'normal',
-          color: '#6c757d'
+        <h3 style={{ 
+          color: '#495057', 
+          margin: 0,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px'
         }}>
-          ({documents.length} 篇文档)
-        </span>
-      </h3>
-
-      {/* 文档分类统计 */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ 
-          display: 'flex', 
-          gap: '10px', 
-          flexWrap: 'wrap'
-        }}>
-          {['基础概念', '高级特性', '开发工具'].map(category => {
-            const count = documents.filter(doc => doc.category === category).length;
-            return (
-              <span
-                key={category}
-                style={{
-                  padding: '4px 12px',
-                  backgroundColor: '#e7f3ff',
-                  color: '#0056b3',
-                  borderRadius: '12px',
-                  fontSize: '12px',
-                  fontWeight: 'bold'
-                }}
-              >
-                {category} ({count})
-              </span>
-            );
-          })}
-        </div>
+          📚 项目文档库
+        </h3>
+        {/* 在文档列表页面也显示主题选择器 */}
+        <ThemeSelector />
       </div>
-
-      {/* 文档列表 */}
+      
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-        gap: '15px'
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+        gap: '20px'
       }}>
-        {documents.map(doc => (
+        {documents.map((doc) => (
           <div
             key={doc.id}
             onClick={() => handleDocumentSelect(doc)}
             style={{
-              padding: '20px',
               backgroundColor: 'white',
+              padding: '20px',
               borderRadius: '8px',
               border: '1px solid #dee2e6',
               cursor: 'pointer',
@@ -310,36 +579,29 @@ DeepSeek 是一个强大的 AI 编程助手...
             }}
             onMouseEnter={(e) => {
               e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
-              e.target.style.borderColor = '#007bff';
+              e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
             }}
             onMouseLeave={(e) => {
               e.target.style.transform = 'translateY(0)';
               e.target.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              e.target.style.borderColor = '#dee2e6';
             }}
           >
-            {/* 文档标题 */}
-            <h4 style={{
-              margin: '0 0 10px 0',
-              color: '#2c3e50',
-              fontSize: '18px',
-              fontWeight: 'bold'
+            <h4 style={{ 
+              margin: '0 0 10px 0', 
+              color: '#007bff',
+              fontSize: '16px'
             }}>
               {doc.title}
             </h4>
-
-            {/* 文档描述 */}
-            <p style={{
-              margin: '0 0 15px 0',
+            <p style={{ 
+              margin: '0 0 15px 0', 
               color: '#6c757d',
               fontSize: '14px',
               lineHeight: '1.5'
             }}>
               {doc.description}
             </p>
-
-            {/* 文档元信息 */}
+            
             <div style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -347,62 +609,33 @@ DeepSeek 是一个强大的 AI 编程助手...
               fontSize: '12px',
               color: '#6c757d'
             }}>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <span style={{
-                  padding: '2px 8px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '4px',
-                  border: '1px solid #dee2e6'
-                }}>
-                  📂 {doc.category}
-                </span>
-                <span>📅 {doc.lastUpdated}</span>
-              </div>
-              <div style={{
-                color: '#007bff',
-                fontWeight: 'bold'
-              }}>
-                点击查看 →
-              </div>
+              <span>📂 {doc.category}</span>
+              <span>📅 {doc.lastUpdated}</span>
             </div>
-
-            {/* 标签 */}
+            
             <div style={{
-              marginTop: '12px',
+              marginTop: '10px',
               display: 'flex',
-              gap: '6px',
-              flexWrap: 'wrap'
+              flexWrap: 'wrap',
+              gap: '5px'
             }}>
-              {doc.tags.map(tag => (
+              {doc.tags.map((tag, index) => (
                 <span
-                  key={tag}
+                  key={index}
                   style={{
-                    padding: '2px 6px',
-                    backgroundColor: '#e7f3ff',
-                    color: '#0056b3',
-                    borderRadius: '3px',
+                    backgroundColor: '#e9ecef',
+                    color: '#495057',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
                     fontSize: '11px'
                   }}
                 >
-                  #{tag}
+                  {tag}
                 </span>
               ))}
             </div>
           </div>
         ))}
-      </div>
-
-      {/* 添加文档提示 */}
-      <div style={{
-        marginTop: '20px',
-        padding: '15px',
-        backgroundColor: '#e7f3ff',
-        borderRadius: '6px',
-        border: '1px solid #007bff',
-        fontSize: '14px',
-        color: '#0056b3'
-      }}>
-        💡 <strong>提示:</strong> 点击任意文档卡片可以查看详细内容。文档支持 Markdown 格式，包含代码示例和详细说明。
       </div>
     </div>
   );
